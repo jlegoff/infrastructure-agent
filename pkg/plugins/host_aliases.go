@@ -18,10 +18,15 @@ import (
 	"github.com/newrelic/infrastructure-agent/pkg/log"
 )
 
+type CloudAlias struct {
+	source 	string
+	alias 	string
+}
+
 type HostAliasesPlugin struct {
 	agent.PluginCommon
 	resolver       hostname.Resolver
-	cloudAliases   map[string]string
+	cloudAlias     CloudAlias
 	cloudHarvester cloud.Harvester // Used to get metadata for the instance.
 	logger         log.Entry
 }
@@ -75,12 +80,9 @@ func (self *HostAliasesPlugin) getHostAliasesDataset() (dataset agent.PluginInve
 		if err != nil {
 			self.logger.WithError(err).Debug("Could not retrieve instance ID. Either this is not the cloud or the metadata API returned an error.")
 		}
-	}
-
-	for key, value := range self.cloudAliases {
 		dataset = append(dataset, sysinfo.HostAliases{
-			Source: key,
-			Alias:  value,
+			Source: self.cloudAlias.source,
+			Alias:  self.cloudAlias.alias,
 		})
 	}
 
@@ -94,16 +96,16 @@ func (self *HostAliasesPlugin) shouldCollectCloudMetadata() bool {
 		self.cloudHarvester.GetCloudType().ShouldCollect()
 }
 
-// Collect cloud metadata and set self.cloudAliases to include whatever we found
+// Collect cloud metadata and set self.cloudAlias to include whatever we found
 func (self *HostAliasesPlugin) collectCloudMetadata() error {
 	instanceID, err := self.cloudHarvester.GetInstanceID()
 	if err != nil {
 		return err
 	}
 
-	self.cloudAliases = map[string]string{
-		self.cloudHarvester.GetCloudSource(): instanceID,
-	}
+	self.cloudAlias = CloudAlias {
+		source: 	self.cloudHarvester.GetCloudSource(),
+		alias: 		instanceID}
 	return nil
 }
 
