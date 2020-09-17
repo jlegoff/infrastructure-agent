@@ -532,7 +532,7 @@ func NewIdLookup(resolver hostname.Resolver, cloudHarvester cloud.Harvester, dis
 	if err != nil {
 		llog.WithField("idLookupTable", idLookupTable).WithError(err).Debug("Unable to get instance id.")
 	} else {
-		idLookupTable[sysinfo.HOST_SOURCE_INSTANCE_ID] = cloudInstanceID
+		idLookupTable[cloudHarvester.GetCloudSource()] = cloudInstanceID
 	}
 
 	return idLookupTable
