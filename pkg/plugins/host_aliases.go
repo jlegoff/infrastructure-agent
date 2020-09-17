@@ -73,11 +73,13 @@ func (self *HostAliasesPlugin) getHostAliasesDataset() (dataset agent.PluginInve
 	}
 
 	// Retrieve the instance ID if the host happens to be running in a cloud VM. If we hit an
-	// error or successfully get the instance ID, stop retrying because it will never change.
+	// error do not return the dataset because this would make the agent reconnect under a different id, triggering
+	// HostNotReporting alerts. See https://github.com/newrelic/infrastructure-agent/issues/94
 	if self.shouldCollectCloudMetadata() {
 		cloudAlias, err := self.collectCloudMetadata()
 		if err != nil {
 			self.logger.WithError(err).Debug("Could not retrieve instance ID. Either this is not the cloud or the metadata API returned an error.")
+			return nil, err
 		}
 		dataset = append(dataset, sysinfo.HostAliases{
 			Source: cloudAlias.source,
@@ -85,7 +87,7 @@ func (self *HostAliasesPlugin) getHostAliasesDataset() (dataset agent.PluginInve
 		})
 	}
 
-	return
+	return dataset, nil
 }
 
 // shouldCollectCloudMetadata will check if we should query for the cloud metadata.
