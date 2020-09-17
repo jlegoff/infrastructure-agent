@@ -26,7 +26,6 @@ type CloudAlias struct {
 type HostAliasesPlugin struct {
 	agent.PluginCommon
 	resolver       hostname.Resolver
-	cloudAlias     CloudAlias
 	cloudHarvester cloud.Harvester // Used to get metadata for the instance.
 	logger         log.Entry
 }
@@ -76,13 +75,13 @@ func (self *HostAliasesPlugin) getHostAliasesDataset() (dataset agent.PluginInve
 	// Retrieve the instance ID if the host happens to be running in a cloud VM. If we hit an
 	// error or successfully get the instance ID, stop retrying because it will never change.
 	if self.shouldCollectCloudMetadata() {
-		err := self.collectCloudMetadata()
+		cloudAlias, err := self.collectCloudMetadata()
 		if err != nil {
 			self.logger.WithError(err).Debug("Could not retrieve instance ID. Either this is not the cloud or the metadata API returned an error.")
 		}
 		dataset = append(dataset, sysinfo.HostAliases{
-			Source: self.cloudAlias.source,
-			Alias:  self.cloudAlias.alias,
+			Source: cloudAlias.source,
+			Alias:  cloudAlias.alias,
 		})
 	}
 
@@ -97,16 +96,17 @@ func (self *HostAliasesPlugin) shouldCollectCloudMetadata() bool {
 }
 
 // Collect cloud metadata and set self.cloudAlias to include whatever we found
-func (self *HostAliasesPlugin) collectCloudMetadata() error {
+func (self *HostAliasesPlugin) collectCloudMetadata() (alias *CloudAlias, err error) {
 	instanceID, err := self.cloudHarvester.GetInstanceID()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	self.cloudAlias = CloudAlias {
-		source: 	self.cloudHarvester.GetCloudSource(),
-		alias: 		instanceID}
-	return nil
+	cloudAlias := CloudAlias {
+		source: self.cloudHarvester.GetCloudSource(),
+		alias: 	instanceID,
+	}
+	return &cloudAlias, nil
 }
 
 func (self *HostAliasesPlugin) Run() {
