@@ -83,6 +83,10 @@ func (s *ShlexOpt) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
+func (s *ShlexOpt) UnmarshalJSON(field []byte) error {
+	return s.Set(string(field))
+}
+
 // Value returns the value as a string slice
 func (s *ShlexOpt) Value() []string {
 	return *s

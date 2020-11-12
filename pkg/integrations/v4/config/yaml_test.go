@@ -3,6 +3,7 @@
 package config
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -29,6 +30,40 @@ integrations:
 `)
 	config := YAML{}
 	require.NoError(t, yaml.Unmarshal(yamlFile, &config))
+	assert.Equal(t, "1s", config.Databind.Discovery.TTL)
+	require.Contains(t, config.Databind.Variables, "myVariable")
+	assert.Equal(t, "1s", config.Databind.Variables["myVariable"].TTL)
+	assert.Len(t, config.Integrations, 2)
+	assert.Contains(t, config.Integrations, ConfigEntry{Exec: ShlexOpt{"/path/to/executable"}})
+	assert.Contains(t, config.Integrations, ConfigEntry{Exec: ShlexOpt{"/path/to/another/executable"}})
+}
+
+func TestJsonParse(t *testing.T) {
+	jsonFile := []byte(`{
+"databind": {
+  "labels": {
+    "integration_group": "my group",
+    "environment": "production"
+  },
+  "discovery": {
+    "ttl": "1s"
+  },
+  "variables": {
+    "myVariable": {
+      "ttl": "1s"
+    }
+  }
+},
+"integrations": [
+  {
+    "exec": "/path/to/executable"
+  },
+  {
+    "exec": "/path/to/another/executable"
+  }]
+}`)
+	config := YAML{}
+	require.NoError(t, json.Unmarshal(jsonFile, &config))
 	assert.Equal(t, "1s", config.Databind.Discovery.TTL)
 	require.Contains(t, config.Databind.Variables, "myVariable")
 	assert.Equal(t, "1s", config.Databind.Variables["myVariable"].TTL)
