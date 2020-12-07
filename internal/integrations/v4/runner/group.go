@@ -4,6 +4,7 @@ package runner
 
 import (
 	"context"
+	v4 "github.com/newrelic/infrastructure-agent/pkg/integrations/v4"
 
 	"github.com/newrelic/infrastructure-agent/internal/integrations/v4/integration"
 	"github.com/newrelic/infrastructure-agent/pkg/databind/pkg/databind"
@@ -18,6 +19,7 @@ import (
 // - parses standard error and logs it
 // - catches errors and logs them
 // - manages the cancellation of tasks, as this should-be hot-reloaded
+// do stuff here
 type Group struct {
 	discovery    *databind.Sources
 	integrations []integration.Definition
@@ -26,6 +28,7 @@ type Group struct {
 	// error is received. If unset, it will be runner.logErrors
 	handleErrorsProvide func() runnerErrorHandler
 	cmdReqHandle        cmdrequest.HandleFn
+	manager             v4.Manager
 }
 
 type runnerErrorHandler func(ctx context.Context, errs <-chan error)
@@ -39,6 +42,7 @@ func NewGroup(
 	emitter emitter.Emitter,
 	cmdReqHandle cmdrequest.HandleFn,
 	cfgPath string,
+	manager v4.Manager,
 ) (g Group, c FeaturesCache, err error) {
 
 	g, c, err = loadFn(il, passthroughEnv, cfgPath, cmdReqHandle)
@@ -47,6 +51,7 @@ func NewGroup(
 	}
 
 	g.emitter = emitter
+	g.manager = manager
 
 	return
 }
@@ -55,7 +60,7 @@ func NewGroup(
 // provided context
 func (g *Group) Run(ctx context.Context) (hasStartedAnyOHI bool) {
 	for _, integr := range g.integrations {
-		go NewRunner(integr, g.emitter, g.discovery, g.handleErrorsProvide, g.cmdReqHandle).Run(ctx, nil)
+		go NewRunner(integr, g.emitter, g.discovery, g.handleErrorsProvide, g.cmdReqHandle, g.manager).Run(ctx, nil)
 		hasStartedAnyOHI = true
 	}
 

@@ -5,6 +5,7 @@ package runner
 import (
 	"bytes"
 	"context"
+	v4 "github.com/newrelic/infrastructure-agent/pkg/integrations/v4"
 	"regexp"
 	"strings"
 	"sync"
@@ -18,6 +19,7 @@ import (
 	"github.com/newrelic/infrastructure-agent/pkg/helpers/contexts"
 	"github.com/newrelic/infrastructure-agent/pkg/integrations/cmdrequest"
 	"github.com/newrelic/infrastructure-agent/pkg/integrations/cmdrequest/protocol"
+	"github.com/newrelic/infrastructure-agent/pkg/integrations/v4/config"
 	"github.com/newrelic/infrastructure-agent/pkg/integrations/v4/emitter"
 	"github.com/newrelic/infrastructure-agent/pkg/log"
 
@@ -52,6 +54,7 @@ type runner struct {
 	healthCheck    sync.Once
 	heartBeatFunc  func()
 	heartBeatMutex sync.RWMutex
+	manager        v4.Manager
 }
 
 // NewRunner creates an integration runner instance.
@@ -62,6 +65,7 @@ func NewRunner(
 	discoverySources *databind.Sources,
 	handleErrorsProvide func() runnerErrorHandler,
 	cmdReqHandle cmdrequest.HandleFn,
+	manager v4.Manager,
 ) *runner {
 	r := &runner{
 		emitter:       emitter,
@@ -70,6 +74,7 @@ func NewRunner(
 		definition:    intDef,
 		heartBeatFunc: func() {},
 		stderrParser:  parseLogrusFields,
+		manager:       manager,
 	}
 	if handleErrorsProvide != nil {
 		r.handleErrors = handleErrorsProvide()
@@ -171,7 +176,7 @@ func (r *runner) execute(ctx context.Context, matches *databind.Values, pidWChan
 	wg.Add(len(outputs))
 	for _, out := range outputs {
 		o := out
-		go r.handleLines(o.Receive.Stdout, o.ExtraLabels, o.EntityRewrite)
+		go r.handleLines(ctx, o.Receive.Stdout, o.ExtraLabels, o.EntityRewrite)
 		go r.handleStderr(o.Receive.Stderr)
 		go func() {
 			defer wg.Done()
@@ -231,7 +236,7 @@ func (r *runner) logErrors(ctx context.Context, errs <-chan error) {
 	}
 }
 
-func (r *runner) handleLines(stdout <-chan []byte, extraLabels data.Map, entityRewrite []data.EntityRewrite) {
+func (r *runner) handleLines(ctx context.Context, stdout <-chan []byte, extraLabels data.Map, entityRewrite []data.EntityRewrite) {
 	for line := range stdout {
 		llog := r.log.WithFieldsF(func() logrus.Fields {
 			return logrus.Fields{"payload": string(line)}
@@ -260,6 +265,11 @@ func (r *runner) handleLines(stdout <-chan []byte, extraLabels data.Map, entityR
 
 			r.handleCmdReq(cr)
 			continue
+		}
+
+		if isConfig, config := config.IsConfigRequest(line); isConfig {
+			//v4.Manager{}
+			r.manager.RunFromConfig(ctx, config)
 		}
 
 		llog.Debug("Received payload.")

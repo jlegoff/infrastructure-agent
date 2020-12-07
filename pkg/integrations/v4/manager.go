@@ -297,7 +297,7 @@ func (mgr *Manager) loadEnabledRunnerGroups(cfgs map[string]config2.YAML) {
 func (mgr *Manager) loadRunnerGroup(path string, cfg config2.YAML, cmdFF *runner.CmdFF) (*groupContext, error) {
 	f := runner.NewFeatures(mgr.config.AgentFeatures, cmdFF)
 	loader := runner.NewLoadFn(cfg, f)
-	gr, fc, err := runner.NewGroup(loader, mgr.lookup, mgr.config.PassthroughEnvironment, mgr.emitter, mgr.handleCmdReq, path)
+	gr, fc, err := runner.NewGroup(loader, mgr.lookup, mgr.config.PassthroughEnvironment, mgr.emitter, mgr.handleCmdReq, path, *mgr)
 	if err != nil {
 		return nil, err
 	}
@@ -314,7 +314,7 @@ func (mgr *Manager) handleRequestsQueue(ctx context.Context) {
 			return
 
 		case def := <-mgr.definitionQueue:
-			r := runner.NewRunner(def, mgr.emitter, nil, nil, mgr.handleCmdReq)
+			r := runner.NewRunner(def, mgr.emitter, nil, nil, mgr.handleCmdReq, *mgr)
 			// tracking so cmd requests can be stopped by hash
 			runCtx, pidWChan := mgr.tracker.Track(ctx, def.CmdChannelHash)
 			go func(hash string) {
@@ -442,11 +442,24 @@ func (mgr *Manager) runIntegrationFromPath(ctx context.Context, cfgPath string, 
 	rc.start(ctx)
 }
 
+func (mgr *Manager) RunFromConfig(ctx context.Context, protocol config2.ConfigProtocol) {
+	rc, err := mgr.loadRunnerGroup("wat", protocol.Config, nil)
+	if err != nil {
+		return
+	}
+
+	mgr.runners.Set("wat", rc)
+	rc.start(ctx)
+}
+
+
+// integrations are stopped here
 func (mgr *Manager) stopRunnerGroup(fileName string) {
 	if ctx, ok := mgr.runners.Get(fileName); ok && ctx != nil && ctx.isRunning() {
 		illog.WithField("file", fileName).
 			Info("integration file modified or deleted. Stopping running processes, if any")
 		ctx.stop()
+		// remove a group should also remove its children
 		mgr.runners.Remove(fileName)
 	}
 }
