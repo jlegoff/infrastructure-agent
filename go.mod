@@ -28,6 +28,7 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/kolo/xmlrpc v0.0.0-20200310150728-e0350524596b
 	github.com/kr/pretty v0.2.0 // indirect
+	github.com/leanovate/gopter v0.2.9
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/newrelic/infra-identity-client-go v1.0.2
 	github.com/opencontainers/go-digest v1.0.0-rc1.0.20180430190053-c9281466c8b2 // indirect

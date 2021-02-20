@@ -4,9 +4,14 @@
 package envvar
 
 import (
+	"gopkg.in/yaml.v2"
 	"os"
+	"reflect"
 	"testing"
 
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/gen"
+	"github.com/leanovate/gopter/prop"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -136,4 +141,41 @@ instances:
 			}
 		})
 	}
+}
+
+type Config struct {
+	Param string
+}
+
+// Parsing a valid YAML before and after removing the comments should produce the same result
+//func Test_removeYAMLCommentsProducesSameYmlManual(t *testing.T) {
+//
+//	rawYml := `param: 򲪛`
+//
+//	config := &Config{}
+//	expectedConfig := &Config{Param: "\U000B2A9B"}
+//	_ = yaml.Unmarshal([]byte(rawYml), config)
+//	assert.Equal(t, "\U000B2A9B", config.Param)
+//	assert.Equal(t, expectedConfig, config)
+//}
+
+// Parsing a valid YAML before and after removing the comments should produce the same result
+func Test_removeYAMLCommentsProducesSameYml(t *testing.T) {
+
+	properties := gopter.NewProperties(nil)
+	properties.Property("Non-zero length small int slice", prop.ForAll(
+		func(config *Config) bool {
+			rawYaml, _ := yaml.Marshal(config)
+			uncommentedYaml, _ := removeYAMLComments(rawYaml)
+			uncommentedConfig := &Config{}
+			_ = yaml.Unmarshal(uncommentedYaml, uncommentedConfig)
+			return uncommentedConfig.Param == config.Param
+		},
+		gen.StructPtr(reflect.TypeOf(Config{}), map[string]gopter.Gen{
+			"Param": gen.AnyString().SuchThat(func(s string) bool {
+				return s != ""
+			}),
+		}),
+	))
+	properties.TestingRun(t)
 }
