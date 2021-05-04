@@ -4,7 +4,11 @@ package plugins
 
 import (
 	"github.com/newrelic/infrastructure-agent/internal/agent"
+	pluginsLinux "github.com/newrelic/infrastructure-agent/internal/plugins/linux"
 	"github.com/newrelic/infrastructure-agent/pkg/integrations/v4/emitter"
+	"github.com/newrelic/infrastructure-agent/pkg/metrics"
+	metricsSender "github.com/newrelic/infrastructure-agent/pkg/metrics/sender"
+	"github.com/newrelic/infrastructure-agent/pkg/metrics/storage"
 	"github.com/newrelic/infrastructure-agent/pkg/plugins/ids"
 	"github.com/newrelic/infrastructure-agent/pkg/plugins/proxy"
 )
@@ -18,7 +22,9 @@ func RegisterPlugins(a *agent.Agent, em emitter.Emitter) error {
 	}
 	a.RegisterPlugin(NewCustomAttrsPlugin(a.Context))
 	a.RegisterPlugin(NewAgentConfigPlugin(*ids.NewPluginID("metadata", "agent_config"), a.Context))
-
+	slog.Error("wat2")
+	a.DeprecatePlugin(ids.PluginID{"hostinfo", "hostinfo"})
+	a.RegisterPlugin(pluginsLinux.NewHostinfoPlugin(a.Context, a.GetCloudHarvester()))
 	if config.HTTPServerEnabled {
 		httpSrv, err := NewHTTPServerPlugin(a.Context, config.HTTPServerHost, config.HTTPServerPort, em)
 		if err != nil {
@@ -35,6 +41,13 @@ func RegisterPlugins(a *agent.Agent, em emitter.Emitter) error {
 	if config.FilesConfigOn {
 		a.RegisterPlugin(NewConfigFilePlugin(*ids.NewPluginID("files", "config"), a.Context))
 	}
+
+	sender := metricsSender.NewSender(a.Context)
+	storageSampler := storage.NewSampler(a.Context)
+	systemSampler := metrics.NewSystemSampler(a.Context, storageSampler)
+	sender.RegisterSampler(systemSampler)
+	sender.RegisterSampler(storageSampler)
+	a.RegisterMetricsSender(sender)
 
 	return nil
 }
