@@ -22,7 +22,6 @@ func RegisterPlugins(a *agent.Agent, em emitter.Emitter) error {
 	}
 	a.RegisterPlugin(NewCustomAttrsPlugin(a.Context))
 	a.RegisterPlugin(NewAgentConfigPlugin(*ids.NewPluginID("metadata", "agent_config"), a.Context))
-	slog.Error("wat2")
 	a.DeprecatePlugin(ids.PluginID{"hostinfo", "hostinfo"})
 	a.RegisterPlugin(pluginsLinux.NewHostinfoPlugin(a.Context, a.GetCloudHarvester()))
 	if config.HTTPServerEnabled {
